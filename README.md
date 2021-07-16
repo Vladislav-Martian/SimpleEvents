@@ -1,0 +1,1 @@
+A simple library that implements a basic event system.
