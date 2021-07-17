@@ -45,6 +45,53 @@ class TestEventClass(unittest.TestCase):
         ed[6] = 6
         del ed[4]
 
+        
+    
+    def testDispatcherSubscribe(self):
+        @Dispatcher()
+        def disp():
+            pass
+        
+        @disp.subscribe
+        def handler():
+            print("Handler Call")
+            self.assertTrue(True)
+        
+        disp()
+    
+    def testDispatcherUnsubscribe(self):
+        @Dispatcher()
+        def disp():
+            pass
+
+        @disp.subscribe
+        def handler():
+            print("Handler Call")
+            self.fail
+        
+        disp.unsubscribe(handler)
+
+        self.assertTrue(True)
+
+        disp()
+
+
+class TestDelegates(unittest.TestCase):
+    def testAllInOne(self):
+        delegate = DelegateList()
+        delegate2 = DelegateList()
+
+
+        delegate + print
+        delegate - print
+
+        delegate2 + print
+        delegate2 + print
+
+        delegate.merge(delegate2)
+
+        delegate("Teststring")
+
 
 if __name__ == '__main__':
     unittest.main()

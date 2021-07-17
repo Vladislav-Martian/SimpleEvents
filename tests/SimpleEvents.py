@@ -1,7 +1,8 @@
 #===============================================
 __all__ = ["DelegateUnary", "DelegateTuple",
-           "DelegateList", "EventData", "EventBase"]
+           "DelegateList", "EventData", "EventBase", "Dispatcher"]
 #===============================================
+import functools
 from typing import Callable, List, Tuple
 
 
@@ -152,9 +153,11 @@ class EventBase(object):
         self.subscriptions[name] = delegateObject
         return self
 
-    def registerNewEvents(self, *names: str, delegateObject=None):
+    def registerNewEvents(self, *names: str, delegateObjectType=None):
+        if delegateObjectType == None:
+            delegateObjectType = DelegateList
         for event in names:
-            self.registerNewEvent(event)
+            self.registerNewEvent(event, delegateObject=delegateObjectType())
         return self
 
     def subscribeToEvent(self, name: str, function: Callable):
@@ -200,3 +203,27 @@ class EventBase(object):
             self.subscriptions[data.name].invoke(data)
         else:
             raise NameError(f"Unregistered event <{data.name}>")
+
+
+def Dispatcher(delegateObject=None):
+    if delegateObject == None:
+        delegateObject = DelegateList()
+
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            wrapper.subscribers.invoke()
+            return func(*args, **kwargs)
+        wrapper.subscribers = delegateObject
+
+        def subscribe(func: Callable):
+            wrapper.subscribers.add(func)
+            return func
+        wrapper.subscribe = subscribe
+
+        def unsubscribe(func: Callable):
+            wrapper.subscribers.remove(func)
+            return func
+        wrapper.unsubscribe = unsubscribe
+        return wrapper
+    return decorator

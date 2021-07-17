@@ -1,6 +1,7 @@
 #===============================================
-__all__ = ["DelegateUnary", "DelegateTuple", "DelegateList", "EventData", "EventBase"]
+__all__ = ["DelegateUnary", "DelegateTuple", "DelegateList", "EventData", "EventBase", "Dispatcher"]
 #===============================================
+import functools
 from typing import Callable, List, Tuple
 
 
@@ -125,7 +126,7 @@ class DelegateList(object):
 
 
 class EventData(dict):
-    def __init__(self, name:str, *args ,**kwargs):
+    def __init__(self, name:str, *args , **kwargs):
         self.name = name
         self.args = args
         for key, value in kwargs.items():
@@ -151,9 +152,11 @@ class EventBase(object):
         self.subscriptions[name] = delegateObject
         return self
     
-    def registerNewEvents(self, *names: str, delegateObject=None):
+    def registerNewEvents(self, *names: str, delegateObjectType=None):
+        if delegateObjectType == None:
+            delegateObjectType = DelegateList
         for event in names:
-            self.registerNewEvent(event)
+            self.registerNewEvent(event, delegateObject=delegateObjectType())
         return self
     
     def subscribeToEvent(self, name: str, function: Callable):
@@ -176,19 +179,19 @@ class EventBase(object):
     
     def clearSubscribers(self):
         for key, value in self.subscriptions.items():
-            self.subscriptions[key].clear()
+            value.clear()
         return self
     
     def notifySubscribers(self, name: str, *args, **kwargs):
         if name in self.subscriptions:
-            self.subscriptions[name].invoke(*args, **kwargs)
+            return self.subscriptions[name].invoke(*args, **kwargs)
         else:
             raise NameError(f"Unregistered event <{name}>")
     
     def notifySubscribersWithData(self, data: EventData):
         data["sender"] = self
         if data.name in self.subscriptions:
-            self.subscriptions[data.name].invoke(data)
+            return self.subscriptions[data.name].invoke(data)
         else:
             raise NameError(f"Unregistered event <{data.name}>")
         
@@ -196,7 +199,28 @@ class EventBase(object):
         data = EventData(name, *args, **kwargs)
         data["sender"] = self
         if data.name in self.subscriptions:
-            self.subscriptions[data.name].invoke(data)
+            return self.subscriptions[data.name].invoke(data)
         else:
             raise NameError(f"Unregistered event <{data.name}>")
 
+
+def Dispatcher(delegateObject = None):
+    if delegateObject == None:
+        delegateObject = DelegateList()
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            wrapper.subscribers.invoke()
+            return func(*args, **kwargs)
+        wrapper.subscribers = delegateObject
+        def subscribe(func: Callable):
+            wrapper.subscribers.add(func)
+            return func
+        wrapper.subscribe = subscribe
+        def unsubscribe(func: Callable):
+            wrapper.subscribers.remove(func)
+            return func
+        wrapper.unsubscribe = unsubscribe
+        return wrapper
+    return decorator
+    
